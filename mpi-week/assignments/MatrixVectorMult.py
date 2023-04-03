@@ -33,10 +33,10 @@ def matrixVectorMult(A, b, x):
 ########################initialize matrix A and vector b ######################
 #matrix sizes
 SIZE = 1000
-#Local_size = 
+Local_size = SIZE // nbOfproc
 
 # counts = block of each proc
-#counts = 
+counts = [Local_size] * nb0fproc
 
 if RANK == 0:
     A = lil_matrix((SIZE, SIZE))
@@ -52,11 +52,14 @@ else :
 
 
 #########Send b to all procs and scatter A (each proc has its own local matrix#####
-#LocalMatrix = 
+LocalMatrix = np.zeros((Local_size, Local_size)) 
+Localb = np.zeros(Local_size)
 # Scatter the matrix A
+displacements = [sum(counts[:i]) for i in range(nbOfproc)]
+COMM.Scatterv([A,counts,displacements,MPI.DOUBLE],LocalMatrix,root =0)
 
 #####################Compute A*b locally#######################################
-#LocalX = 
+LocalX = np.zeros(Local_size)
 
 start = MPI.Wtime()
 matrixVectorMult(LocalMatrix, b, LocalX)
@@ -66,13 +69,15 @@ if RANK == 0:
 
 ##################Gather te results ###########################################
 # sendcouns = local size of result
-#sendcounts = 
-# if RANK == 0: 
-#     X = ...
-# else :
-#     X = ..
+sendcounts = [Local_size] * nbOfproc
+sendcounts[-1] += SIZE * nbOfproc
+if RANK == 0: 
+     X = np.zeros(SIZE)
+else :
+     X = None
 
 # Gather the result into X
+COMM.Gatherv(LocalX,[X,sendcounts,displacements, MPI.DOUBLE],root = 0)
 
 
 ##################Print the results ###########################################
@@ -80,5 +85,5 @@ if RANK == 0:
 if RANK == 0 :
     X_ = A.dot(b)
     print("The result of A*b using dot is :", np.max(X_ - X))
-    # print("The result of A*b using parallel version is :", X)
+    print("The result of A*b using parallel version is :", X)
     
